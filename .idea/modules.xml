@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/movit_object_tracking.iml" filepath="$PROJECT_DIR$/.idea/movit_object_tracking.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/mvt-tracker.iml" filepath="$PROJECT_DIR$/.idea/mvt-tracker.iml" />
     </modules>
   </component>
 </project>
