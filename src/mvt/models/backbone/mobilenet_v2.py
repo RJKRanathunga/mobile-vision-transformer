@@ -68,19 +68,19 @@ class MV2Block(nn.Module):
             nn.BatchNorm2d(out_channels)
         )
 
-        self.use_residual = (
-            stride == 1 and in_channels == out_channels
-        ) # add input to output (input+output) of the block
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        block = nn.Sequential(
+        self.block = nn.Sequential(
             self.expansion,
             self.depthwise,
             self.projection
         )
 
-        y = block(x)
+        self.use_residual = (
+            stride == 1 and in_channels == out_channels
+        ) # add input to output (input+output) of the block
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = self.block(x)
         if self.use_residual:
-            return x + y
-        else:
-            return y
+            y = x + y
+
+        return y
