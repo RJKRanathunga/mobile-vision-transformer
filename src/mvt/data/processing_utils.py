@@ -113,7 +113,6 @@ def sample_target(
     attention_mask = cv2.resize(
         attention_mask.astype(np.uint8),
         (output_size, output_size),
-        interpolation=cv2.INTER_NEAREST,
     ).astype(np.bool_)
 
     return image_crop, resize_factor, attention_mask

@@ -6,7 +6,7 @@ from mvt.data.processing_utils import (
     transform_image_to_crop,
 )
 
-from mvt.data.processing import get_jittered_box
+from mvt.data.processing import MVTProcessing
 
 
 def test_sample_target_search_size():
@@ -72,7 +72,7 @@ def test_jittered_box_shape():
         [100.0, 100.0, 50.0, 80.0]
     )
 
-    jittered = get_jittered_box(
+    jittered = MVTProcessing.get_jittered_box(
         box,
         center_jitter=3.0,
         scale_jitter=0.25,
@@ -87,10 +87,67 @@ def test_zero_jitter():
         [100.0, 100.0, 50.0, 80.0]
     )
 
-    jittered = get_jittered_box(
+    jittered = MVTProcessing.get_jittered_box(
         box,
         center_jitter=0.0,
         scale_jitter=0.0,
     )
 
     assert torch.allclose(jittered, box)
+
+
+def test_mvt_processing():
+    processor = MVTProcessing()
+
+    template_image = np.zeros(
+        (400, 500, 3),
+        dtype=np.uint8,
+    )
+
+    search_image = np.zeros(
+        (600, 800, 3),
+        dtype=np.uint8,
+    )
+
+    template_bbox = torch.tensor(
+        [200.0, 150.0, 80.0, 100.0]
+    )
+
+    search_bbox = torch.tensor(
+        [300.0, 200.0, 120.0, 150.0]
+    )
+
+    output = processor(
+        template_image,
+        template_bbox,
+        search_image,
+        search_bbox,
+    )
+
+    assert output["template_image"].shape == (
+        128,
+        128,
+        3,
+    )
+
+    assert output["search_image"].shape == (
+        256,
+        256,
+        3,
+    )
+
+    assert output["template_bbox"].shape == (4,)
+    assert output["search_bbox"].shape == (4,)
+
+    assert output["template_attention_mask"].shape == (
+        128,
+        128,
+    )
+
+    assert output["search_attention_mask"].shape == (
+        256,
+        256,
+    )
+
+    assert torch.isfinite(output["template_bbox"]).all()
+    assert torch.isfinite(output["search_bbox"]).all()
