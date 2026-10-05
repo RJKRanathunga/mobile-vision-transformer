@@ -2,57 +2,86 @@ from pathlib import Path
 
 import torch
 from PIL import Image
-from torchvision import transforms
 
-TEMPLATE_SIZE = (128, 128)
-SEARCH_SIZE = (256, 256)
+from mvt.data.processing_utils import jittered_center_crop
+
+
+TEMPLATE_SIZE = 128
+SEARCH_SIZE = 256
+
+TEMPLATE_FACTOR = 2.0
+SEARCH_FACTOR = 4.0
+
 
 class MVTInputProcessor:
     """
-    Prepare template and search region images for MVT model.
+    Prepare template and search regions for MVT.
 
-    Template: 128 x 128 x 3
-    Search region: 256 x 256 x 3
+    The input images are original video frames and the corresponding
+    bounding boxes are used to extract the template/search regions.
     """
 
-    def __init__(self):
-        self.template_transform = transforms.Compose([
-            transforms.Resize(TEMPLATE_SIZE),
-            transforms.ToTensor()
-        ])
-
-        self.search_transform = transforms.Compose([
-            transforms.Resize(SEARCH_SIZE),
-            transforms.ToTensor()
-        ])
-
-    def load_template(self, image_path: str | Path) -> torch.Tensor:
+    def load_image(self, image_path: str | Path):
         """
-        Load and preprocess a template image.
-        Returns:
-            Tensor with shape [1,3,128,128]
+        Load an image as an RGB numpy array.
         """
+
         image = Image.open(image_path).convert("RGB")
 
-        tensor = self.template_transform(image)
+        return __import__("numpy").array(image)
 
-        # Add batch dimension (3, 128, 128) -> (1, 3, 128, 128)
-        tensor = tensor.unsqueeze(0)
+    def process_template(
+        self,
+        image,
+        bbox: torch.Tensor,
+    ):
+        """
+        Extract a 128x128 template crop.
+        """
+
+        crops, boxes, attention_masks = jittered_center_crop(
+            frames=[image],
+            box_extract=[bbox],
+            box_gt=[bbox],
+            search_area_factor=TEMPLATE_FACTOR,
+            output_size=TEMPLATE_SIZE,
+        )
+
+        return crops[0], boxes[0], attention_masks[0]
+
+    def process_search(
+        self,
+        image,
+        bbox_extract: torch.Tensor,
+        bbox_gt: torch.Tensor,
+    ):
+        """
+        Extract a 256x256 search crop.
+
+        bbox_extract determines where the crop is taken.
+        bbox_gt is the actual target box that gets transformed.
+        """
+
+        crops, boxes, attention_masks = jittered_center_crop(
+            frames=[image],
+            box_extract=[bbox_extract],
+            box_gt=[bbox_gt],
+            search_area_factor=SEARCH_FACTOR,
+            output_size=SEARCH_SIZE,
+        )
+
+        return crops[0], boxes[0], attention_masks[0]
+
+    @staticmethod
+    def to_tensor(image):
+        """
+        Convert HxWx3 uint8 image to 3xHxW float tensor in [0, 1].
+        """
+
+        tensor = torch.from_numpy(image).float()
+
+        tensor = tensor.permute(2, 0, 1)
+
+        tensor /= 255.0
+
         return tensor
-
-    def load_search(self, image_path: str | Path) -> torch.Tensor:
-        """
-        Load and preprocess a search region image
-        Returns:
-            Tensor with shape [1,3,256,256]
-        """
-        image = Image.open(image_path).convert("RGB")
-
-        tensor = self.search_transform(image)
-
-        return tensor.unsqueeze(0)
-
-    def load_pair(self, template_path: str | Path, search_path: str | Path):
-        template = self.load_template(template_path)
-        search = self.load_search(search_path)
-        return template, search
