@@ -92,6 +92,9 @@ class SiamMoViTBlock(nn.Module):
                     embed_dim=transformer_dim,
                     ffn_dim=ffn_dim,
                     num_heads=num_heads,
+                    attn_dropout=0.1,
+                    dropout=0.1,
+                    ffn_dropout=0.0,
                 )
                 for _ in range(num_transformer_blocks)
             ],

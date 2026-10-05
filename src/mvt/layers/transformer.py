@@ -1,94 +1,117 @@
 import torch
 from torch import nn
 
+from mvt.layers.attention import MultiHeadAttention
+
+
 class TransformerEncoderBlock(nn.Module):
     """
     Pre-norm Transformer encoder block used by MVT.
 
-    Input: [B,N,D]
-    Output: [B,N,D]
-    Where:
-        B = batch size
-        N = number of tokens
-        D = embedding dimension
+    Input:
+        [B, N, D]
+
+    Output:
+        [B, N, D]
     """
 
     def __init__(
-            self,
-            embed_dim: int,
-            ffn_dim: int,
-            num_heads: int,
-            dropout: float = 0.0,
-            ffn_dropout: float = 0.0
+        self,
+        embed_dim: int,
+        ffn_dim: int,
+        num_heads: int,
+        attn_dropout: float = 0.0,
+        dropout: float = 0.0,
+        ffn_dropout: float = 0.0,
     ):
         super().__init__()
 
         if embed_dim % num_heads != 0:
-            raise ValueError("embed_dim must be divisible by num_heads")
+            raise ValueError(
+                f"embed_dim ({embed_dim}) must be divisible "
+                f"by num_heads ({num_heads})"
+            )
 
-        # -------------------------
-        # Multi Head Self-Attention
-        # LayerNorm
-        # -> MultiheadAttention
-        # -> Dropout
-        # -> Residual
-        # ------------------------
+        # =========================================================
+        # Multi-head attention
+        # =========================================================
 
         self.norm1 = nn.LayerNorm(embed_dim)
-        self.attention = nn.MultiheadAttention(
+
+        self.attention = MultiHeadAttention(
             embed_dim=embed_dim,
             num_heads=num_heads,
-            dropout=dropout,
-            batch_first=True
+            attn_dropout=attn_dropout,
+            bias=True,
         )
 
-        self.attention_dropout = nn.Dropout(dropout)
+        self.attention_dropout = nn.Dropout(
+            dropout
+        )
 
-        # -----------------------------
-        # Free forward Network
-        # LayerNorm
-        # -> Linear(D -> FFN)
-        # -> ReLU
-        # -> Dropout
-        # -> Linear(FFN -> D)
-        # -> Dropout
-        # -> Residual
-        # ---------------------------
+        # =========================================================
+        # Feed-forward network
+        # =========================================================
 
         self.norm2 = nn.LayerNorm(embed_dim)
 
         self.ffn = nn.Sequential(
-            nn.Linear(embed_dim, ffn_dim),
+            nn.Linear(
+                embed_dim,
+                ffn_dim,
+                bias=True,
+            ),
+
             nn.ReLU(inplace=True),
-            nn.Dropout(ffn_dropout),
-            nn.Linear(ffn_dim, embed_dim),
-            nn.Dropout(dropout)
+
+            nn.Dropout(
+                ffn_dropout
+            ),
+
+            nn.Linear(
+                ffn_dim,
+                embed_dim,
+                bias=True,
+            ),
+
+            nn.Dropout(
+                dropout
+            ),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            x: Tensor of shape [B,N,D]
+    def forward(
+        self,
+        x: torch.Tensor,
+        x_prev: torch.Tensor | None = None,
+        key_padding_mask: torch.Tensor | None = None,
+        attn_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
 
-        Returns:
-            Tensor of shape [B,N,D]
-        """
+        # =========================================================
+        # Multi-head attention
+        # =========================================================
 
-        # ---------------------------
-        # Multi-head self-attention
-        # ------------------------------
         residual = x
+
         x = self.norm1(x)
 
-        attention_output, _ = self.attention(x,x,x,need_weight=False)
-        attention_output = self.attention_dropout(attention_output)
-        x = residual + attention_output
+        x = self.attention(
+            x_q=x,
+            x_kv=x_prev,
+            key_padding_mask=key_padding_mask,
+            attn_mask=attn_mask,
+        )
 
-        # -----------------------
+        x = self.attention_dropout(x)
+
+        x = x + residual
+
+        # =========================================================
         # Feed-forward network
-        # ----------------------
-        residual = x
-        x = self.norm2(x)
-        x = self.ffn(x)
-        x = residual + x
+        # =========================================================
+
+        x = x + self.ffn(
+            self.norm2(x)
+        )
+
         return x
