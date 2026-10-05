@@ -6,6 +6,8 @@ from mvt.data.processing_utils import (
     transform_image_to_crop,
 )
 
+from mvt.data.processing import get_jittered_box
+
 
 def test_sample_target_search_size():
     image = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -63,3 +65,32 @@ def test_transform_image_to_crop():
 
     assert result.shape == (4,)
     assert torch.isfinite(result).all()
+
+
+def test_jittered_box_shape():
+    box = torch.tensor(
+        [100.0, 100.0, 50.0, 80.0]
+    )
+
+    jittered = get_jittered_box(
+        box,
+        center_jitter=3.0,
+        scale_jitter=0.25,
+    )
+
+    assert jittered.shape == (4,)
+    assert torch.isfinite(jittered).all()
+
+
+def test_zero_jitter():
+    box = torch.tensor(
+        [100.0, 100.0, 50.0, 80.0]
+    )
+
+    jittered = get_jittered_box(
+        box,
+        center_jitter=0.0,
+        scale_jitter=0.0,
+    )
+
+    assert torch.allclose(jittered, box)
