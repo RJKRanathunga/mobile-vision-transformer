@@ -290,9 +290,7 @@ class CenterPredictor(nn.Module):
         torch.Tensor,
     ]:
 
-        score_map_ctr, size_map, offset_map = (
-            self.get_score_map(x)
-        )
+        score_map_ctr, size_map, offset_map = self.get_score_map(x)
 
         if gt_score_map is None:
             bbox = self.cal_bbox(
@@ -302,7 +300,7 @@ class CenterPredictor(nn.Module):
             )
         else:
             bbox = self.cal_bbox(
-                gt_score_map.unsqueeze(1),
+                gt_score_map,
                 size_map,
                 offset_map,
             )
