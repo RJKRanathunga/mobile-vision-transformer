@@ -299,6 +299,12 @@ class CenterPredictor(nn.Module):
                 offset_map,
             )
         else:
+            if gt_score_map.ndim == 3:
+                gt_score_map = gt_score_map.unsqueeze(1)
+            elif gt_score_map.ndim != 4:
+                raise ValueError(
+                    "gt_score_map must have shape [B, H, W] or [B, 1, H, W]"
+                )
             bbox = self.cal_bbox(
                 gt_score_map,
                 size_map,

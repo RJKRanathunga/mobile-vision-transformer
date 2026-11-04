@@ -3,7 +3,8 @@ from torch import nn
 
 def make_divisible(value: int, divisor: int = 8) -> int:
     """Make a channel count divisible by the given divisor"""
-    return int((value+divisor-1)//divisor)*divisor
+    return int((value + divisor - 1) // divisor) * divisor
+
 
 class MV2Block(nn.Module):
     EXPAND_RATIO = 4
@@ -16,7 +17,7 @@ class MV2Block(nn.Module):
     ) -> None:
         super().__init__()
 
-        if stride not in (1,2):
+        if stride not in (1, 2):
             raise ValueError("stride must be either 1 or 2")
 
         hidden_channels = make_divisible(
@@ -29,7 +30,7 @@ class MV2Block(nn.Module):
         self.stride = stride
         self.hidden_channels = hidden_channels
 
-        self.expansion = nn.Sequential(
+        expansion = nn.Sequential(
             nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=hidden_channels,
@@ -42,21 +43,21 @@ class MV2Block(nn.Module):
             nn.ReLU(inplace=True)
         )
 
-        self.depthwise = nn.Sequential(
+        depthwise = nn.Sequential(
             nn.Conv2d(
                 in_channels=hidden_channels,
                 out_channels=hidden_channels,
                 kernel_size=3,
                 stride=stride,
                 padding=1,
-                groups=hidden_channels, # make it depthwise convolution
+                groups=hidden_channels,
                 bias=False
             ),
             nn.BatchNorm2d(hidden_channels),
             nn.ReLU(inplace=True)
         )
 
-        self.projection = nn.Sequential(
+        projection = nn.Sequential(
             nn.Conv2d(
                 in_channels=hidden_channels,
                 out_channels=out_channels,
@@ -69,14 +70,29 @@ class MV2Block(nn.Module):
         )
 
         self.block = nn.Sequential(
-            self.expansion,
-            self.depthwise,
-            self.projection
+            expansion,
+            depthwise,
+            projection,
         )
 
         self.use_residual = (
             stride == 1 and in_channels == out_channels
-        ) # add input to output (input+output) of the block
+        )
+
+    @property
+    def expansion(self) -> nn.Sequential:
+        """Expansion stage without registering a duplicate state-dict path."""
+        return self.block[0]
+
+    @property
+    def depthwise(self) -> nn.Sequential:
+        """Depth-wise stage without registering a duplicate state-dict path."""
+        return self.block[1]
+
+    @property
+    def projection(self) -> nn.Sequential:
+        """Projection stage without registering a duplicate state-dict path."""
+        return self.block[2]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         y = self.block(x)

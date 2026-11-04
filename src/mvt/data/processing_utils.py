@@ -8,9 +8,10 @@ import torch.nn.functional as F
 
 def sample_target(
     image: np.ndarray,
-    target_bbox: torch.Tensor,
+    target_bbox: torch.Tensor | list[float] | tuple[float, float, float, float],
     search_area_factor: float,
-    output_size: int,
+    output_size: int | None,
+    mask: torch.Tensor | None = None,
 ):
     """
     Extract a square crop centered on the target bounding box.
@@ -39,7 +40,10 @@ def sample_target(
             Boolean mask indicating padded regions.
     """
 
-    x, y, w, h = target_bbox.tolist()
+    if isinstance(target_bbox, torch.Tensor):
+        x, y, w, h = target_bbox.tolist()
+    else:
+        x, y, w, h = target_bbox
 
     # Size of the square crop.
     crop_size = math.ceil(
@@ -69,6 +73,11 @@ def sample_target(
         x1 + x1_pad : x2 - x2_pad,
         :,
     ]
+    if mask is not None:
+        mask_crop = mask[
+            y1 + y1_pad : y2 - y2_pad,
+            x1 + x1_pad : x2 - x2_pad,
+        ]
 
     # Pad areas outside the original image.
     image_crop = cv2.copyMakeBorder(
@@ -79,6 +88,13 @@ def sample_target(
         x2_pad,
         cv2.BORDER_CONSTANT,
     )
+    if mask is not None:
+        mask_crop = F.pad(
+            mask_crop,
+            pad=(x1_pad, x2_pad, y1_pad, y2_pad),
+            mode="constant",
+            value=0,
+        )
 
     # ---------------------------------------------------------
     # Attention mask
@@ -86,10 +102,9 @@ def sample_target(
 
     height, width, _ = image_crop.shape
 
-    attention_mask = np.ones(
-        (height, width),
-        dtype=np.bool_,
-    )
+    # Upstream creates this as floating point before interpolation. Using
+    # uint8 changes boundary pixels after OpenCV's bilinear resize.
+    attention_mask = np.ones((height, width))
 
     end_x = -x2_pad if x2_pad > 0 else None
     end_y = -y2_pad if y2_pad > 0 else None
@@ -103,6 +118,11 @@ def sample_target(
     # Resize
     # ---------------------------------------------------------
 
+    if output_size is None:
+        if mask is None:
+            return image_crop, attention_mask.astype(np.bool_), 1.0
+        return image_crop, 1.0, attention_mask.astype(np.bool_), mask_crop
+
     resize_factor = output_size / crop_size
 
     image_crop = cv2.resize(
@@ -111,11 +131,20 @@ def sample_target(
     )
 
     attention_mask = cv2.resize(
-        attention_mask.astype(np.uint8),
+        attention_mask,
         (output_size, output_size),
     ).astype(np.bool_)
 
-    return image_crop, resize_factor, attention_mask
+    if mask is None:
+        return image_crop, resize_factor, attention_mask
+
+    mask_crop = F.interpolate(
+        mask_crop[None, None],
+        (output_size, output_size),
+        mode="bilinear",
+        align_corners=False,
+    )[0, 0]
+    return image_crop, resize_factor, attention_mask, mask_crop
 
 
 def transform_image_to_crop(
@@ -168,6 +197,7 @@ def jittered_center_crop(
     box_gt,
     search_area_factor,
     output_size,
+    masks=None,
 ):
     """
     Crop frames around box_extract and transform box_gt
@@ -177,19 +207,23 @@ def jittered_center_crop(
     crops = []
     resize_factors = []
     attention_masks = []
+    mask_crops = [] if masks is not None else None
     boxes = []
 
-    for frame, extract_box, gt_box in zip(
-        frames,
-        box_extract,
-        box_gt,
-    ):
-        crop, resize_factor, attention_mask = sample_target(
-            frame,
-            extract_box,
-            search_area_factor,
-            output_size,
+    if masks is None:
+        samples = zip(frames, box_extract, box_gt, [None] * len(frames))
+    else:
+        samples = zip(frames, box_extract, box_gt, masks)
+
+    for frame, extract_box, gt_box, mask in samples:
+        result = sample_target(
+            frame, extract_box, search_area_factor, output_size, mask
         )
+        if mask is None:
+            crop, resize_factor, attention_mask = result
+        else:
+            crop, resize_factor, attention_mask, mask_crop = result
+            mask_crops.append(mask_crop)
 
         crops.append(crop)
         resize_factors.append(resize_factor)
@@ -214,4 +248,5 @@ def jittered_center_crop(
         crops,
         boxes,
         attention_masks,
+        mask_crops,
     )

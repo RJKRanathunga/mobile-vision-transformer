@@ -6,6 +6,7 @@ def generate_heatmap(
     bboxes: torch.Tensor,
     heatmap_size: int = 16,
     min_overlap: float = 0.7,
+    upstream_bug_compatible: bool = False,
 ) -> torch.Tensor:
     """
     Generate CenterNet-style Gaussian heatmaps.
@@ -47,6 +48,7 @@ def generate_heatmap(
     radius = get_gaussian_radius(
         wh,
         min_overlap,
+        upstream_bug_compatible=upstream_bug_compatible,
     )
 
     radius = torch.clamp(
@@ -67,6 +69,7 @@ def generate_heatmap(
 def get_gaussian_radius(
     box_size: torch.Tensor,
     min_overlap: float,
+    upstream_bug_compatible: bool = False,
 ) -> torch.Tensor:
     """
     Calculate Gaussian radius using the CenterNet equations.
@@ -126,7 +129,11 @@ def get_gaussian_radius(
         )
     )
 
-    r3 = (b3 + sq3) / (2.0 * a3)
+    # The pinned upstream repository explicitly labels its division by 2 as
+    # a bug-version. Keep the correct CornerNet equation by default, while
+    # allowing literal checkpoint/training reproduction when requested.
+    denominator = 2.0 if upstream_bug_compatible else 2.0 * a3
+    r3 = (b3 + sq3) / denominator
 
     return torch.minimum(
         r1,

@@ -95,10 +95,34 @@ class MVT(nn.Module):
         # 1. Backbone
         # =========================================================
 
-        search_features, template_features = self.backbone(
-            search,
-            template,
+        search_features, template_features = self.backbone(search, template)
+
+        return self._predict(search_features, template_features)
+
+    def extract_template_features(self, template: torch.Tensor) -> torch.Tensor:
+        """Extract the template stem once for stateful tracking."""
+        return self.backbone.extract_template(template)
+
+    def forward_with_template_features(
+        self,
+        search: torch.Tensor,
+        template_features: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
+        """Run a search frame against template features cached at initialization."""
+        search_features, template_features = (
+            self.backbone.forward_with_template_features(
+                search,
+                template_features,
+            )
         )
+        return self._predict(search_features, template_features)
+
+    def _predict(
+        self,
+        search_features: torch.Tensor,
+        template_features: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
+        """Apply the neck, feature fusor, and center head."""
 
         # =========================================================
         # 2. Neck
@@ -133,7 +157,7 @@ class MVT(nn.Module):
         # 5. Return predictions
         # =========================================================
 
-        batch_size = search.shape[0]
+        batch_size = search_features.shape[0]
 
         return {
             "pred_boxes": bbox.view(

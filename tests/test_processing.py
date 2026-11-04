@@ -46,6 +46,40 @@ def test_sample_target_template_size():
     assert attention_mask.shape == (128, 128)
 
 
+def test_sample_target_accepts_tracker_list_box():
+    image = np.zeros((100, 120, 3), dtype=np.uint8)
+    tensor_result = sample_target(
+        image,
+        torch.tensor([40.0, 30.0, 20.0, 10.0]),
+        search_area_factor=4.0,
+        output_size=64,
+    )
+    list_result = sample_target(
+        image,
+        [40.0, 30.0, 20.0, 10.0],
+        search_area_factor=4.0,
+        output_size=64,
+    )
+    assert np.array_equal(tensor_result[0], list_result[0])
+    assert tensor_result[1] == list_result[1]
+    assert np.array_equal(tensor_result[2], list_result[2])
+
+
+def test_sample_target_boundary_mask_uses_float_interpolation():
+    image = np.zeros((73, 91, 3), dtype=np.uint8)
+    _, _, attention_mask = sample_target(
+        image,
+        [-4.2, -3.0, 12.0, 9.0],
+        search_area_factor=4.0,
+        output_size=64,
+    )
+    # Upstream's floating-point interpolation keeps partially covered
+    # boundary pixels marked as padding.
+    assert attention_mask.dtype == np.bool_
+    assert attention_mask.any()
+    assert (~attention_mask).any()
+
+
 def test_transform_image_to_crop():
     bbox = torch.tensor(
         [100.0, 100.0, 50.0, 50.0]

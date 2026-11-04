@@ -139,6 +139,52 @@ class MVTBackbone(nn.Module):
             num_heads=4,
         )
 
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Match the initialization used by the upstream MobileViT encoder."""
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d):
+                nn.init.kaiming_normal_(module.weight, mode="fan_out")
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
+            elif isinstance(module, nn.Linear):
+                nn.init.normal_(module.weight, mean=0.0, std=0.01)
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
+            elif isinstance(module, (nn.BatchNorm2d, nn.LayerNorm)):
+                if module.weight is not None:
+                    nn.init.ones_(module.weight)
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
+
+    def extract_stem_features(self, image: torch.Tensor) -> torch.Tensor:
+        """Run the shared convolutional stem through MobileNetV2 layer 2."""
+        image = self.first_conv(image)
+        image = self.layer1(image)
+        return self.layer2(image)
+
+    def extract_template(self, template: torch.Tensor) -> torch.Tensor:
+        """Extract the cacheable template feature used by upstream inference."""
+        return self.extract_stem_features(template)
+
+    def forward_with_template_features(
+        self,
+        search: torch.Tensor,
+        template_features: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Run joint layers using a template cached after backbone layer 2."""
+        search = self.extract_stem_features(search)
+        template = template_features
+
+        search = self.layer3_mv2(search)
+        template = self.layer3_mv2(template)
+        search, template = self.layer3_movit(search, template)
+
+        search = self.layer4_mv2(search)
+        template = self.layer4_mv2(template)
+        return self.layer4_movit(search, template)
+
     def forward(
         self,
         search: torch.Tensor,
@@ -151,45 +197,5 @@ class MVTBackbone(nn.Module):
         # SAME weights for search and template.
         # =========================================================
 
-        search = self.first_conv(search)
-        template = self.first_conv(template)
-
-        # =========================================================
-        # Layer 1
-        # =========================================================
-
-        search = self.layer1(search)
-        template = self.layer1(template)
-
-        # =========================================================
-        # Layer 2
-        # =========================================================
-
-        search = self.layer2(search)
-        template = self.layer2(template)
-
-        # =========================================================
-        # Layer 3
-        # =========================================================
-
-        search = self.layer3_mv2(search)
-        template = self.layer3_mv2(template)
-
-        search, template = self.layer3_movit(
-            search,
-            template,
-        )
-
-        # =========================================================
-        # Layer 4
-        # =========================================================
-
-        search = self.layer4_mv2(search)
-        template = self.layer4_mv2(template)
-
-        search, template = self.layer4_movit(
-            search,
-            template,
-        )
-
-        return search, template
+        template_features = self.extract_template(template)
+        return self.forward_with_template_features(search, template_features)

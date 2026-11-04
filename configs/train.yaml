@@ -1,0 +1,41 @@
+data:
+  sampler_mode: causal
+  maximum_sample_interval: 200
+  search:
+    center_jitter: 3.0
+    scale_jitter: 0.25
+    number: 1
+  template:
+    center_jitter: 0.0
+    scale_jitter: 0.0
+    number: 1
+  train:
+    datasets: [GOT10K_train_full]
+    ratios: [1]
+    samples_per_epoch: 60000
+  validation:
+    datasets: [GOT10K_official_val]
+    ratios: [1]
+    samples_per_epoch: 10000
+
+training:
+  batch_size: 128
+  epochs: 100
+  workers: 10
+  optimizer: adamw
+  learning_rate: 0.0004
+  weight_decay: 0.0001
+  backbone_multiplier: 0.1
+  gradient_clip_norm: 0.1
+  amp: false
+  scheduler:
+    type: cosine_anneal
+    eta_min: 1.0e-9
+  losses:
+    giou_weight: 2.0
+    l1_weight: 5.0
+    upstream_heatmap_bug_compatible: false
+
+# The optimizer, scheduler, processing, target, and loss primitives are
+# implemented. Dataset sampling, augmentation composition, and the epoch
+# runner remain outside the current local implementation.

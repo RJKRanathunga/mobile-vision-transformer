@@ -97,6 +97,7 @@ class MVTProcessing:
             template_crops,
             template_boxes,
             template_masks,
+            _,
         ) = jittered_center_crop(
             frames=[template_image],
             box_extract=[template_extract_bbox],
@@ -119,6 +120,7 @@ class MVTProcessing:
             search_crops,
             search_boxes,
             search_masks,
+            _,
         ) = jittered_center_crop(
             frames=[search_image],
             box_extract=[search_extract_bbox],

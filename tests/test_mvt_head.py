@@ -73,3 +73,14 @@ def test_center_predictor_backward():
 
     assert x.grad is not None
     assert torch.isfinite(x.grad).all()
+
+
+def test_center_predictor_accepts_upstream_gt_score_map_shape():
+    head = CenterPredictor()
+    x = torch.randn(2, 256, 16, 16)
+    gt_score_map = torch.zeros(2, 16, 16)
+    gt_score_map[:, 5, 7] = 1.0
+
+    _, bbox, _, _ = head(x, gt_score_map=gt_score_map)
+
+    assert bbox.shape == (2, 4)

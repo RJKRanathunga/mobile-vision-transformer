@@ -6,7 +6,7 @@ from mvt.losses.box_ops import (
 )
 from mvt.losses.focal_loss import FocalLoss
 from mvt.losses.giou_loss import giou_loss
-from mvt.losses.target import generate_heatmap
+from mvt.losses.target import generate_heatmap, get_gaussian_radius
 
 
 def test_box_cxcywh_to_xyxy():
@@ -128,3 +128,18 @@ def test_heatmap_has_peak():
     # Therefore the Gaussian peak should be around (8, 8).
 
     assert heatmap[0, 0, 8, 8] == 1.0
+
+
+def test_upstream_heatmap_bug_compatibility_is_explicit():
+    box_size = torch.tensor([[6.0, 8.0]])
+    corrected = get_gaussian_radius(
+        box_size,
+        min_overlap=0.7,
+    )
+    upstream = get_gaussian_radius(
+        box_size,
+        min_overlap=0.7,
+        upstream_bug_compatible=True,
+    )
+
+    assert not torch.allclose(corrected, upstream)

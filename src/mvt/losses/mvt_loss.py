@@ -23,6 +23,7 @@ class MVTLoss(nn.Module):
         l1_weight: float = 5.0,
         giou_weight: float = 2.0,
         heatmap_size: int = 16,
+        upstream_heatmap_bug_compatible: bool = False,
     ) -> None:
         super().__init__()
 
@@ -33,6 +34,7 @@ class MVTLoss(nn.Module):
         self.giou_weight = giou_weight
 
         self.heatmap_size = heatmap_size
+        self.upstream_heatmap_bug_compatible = upstream_heatmap_bug_compatible
 
     def forward(
         self,
@@ -64,6 +66,7 @@ class MVTLoss(nn.Module):
         gt_heatmap = generate_heatmap(
             gt_boxes,
             heatmap_size=self.heatmap_size,
+            upstream_bug_compatible=self.upstream_heatmap_bug_compatible,
         )
 
         # --------------------------------------------------

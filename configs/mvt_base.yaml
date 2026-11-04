@@ -1,0 +1,29 @@
+reference:
+  repository: https://github.com/goutamyg/MVT
+  commit: 880e74b1d1f720cb51d78b68655a4ffef94ed954
+
+model:
+  backbone:
+    type: mobilevit_s
+    stride: 16
+    output_channels: 128
+  neck:
+    type: batch_norm_feature_fusor_lighttrack
+    correlation_channels: 64
+    output_channels: 256
+  head:
+    type: center
+    channels: 256
+    feature_size: 16
+
+data:
+  color_order: RGB
+  scale: 0.00392156862745098
+  mean: [0.0, 0.0, 0.0]
+  std: [1.0, 1.0, 1.0]
+  template:
+    size: 128
+    factor: 2.0
+  search:
+    size: 256
+    factor: 4.0

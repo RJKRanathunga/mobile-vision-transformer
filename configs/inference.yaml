@@ -1,0 +1,11 @@
+device: cuda
+template:
+  size: 128
+  factor: 2.0
+search:
+  size: 256
+  factor: 4.0
+backbone_stride: 16
+apply_hann_window: true
+clip_margin: 10
+cache_template_stem: true
