@@ -1,0 +1,16 @@
+Merge these newly generated files into the root of your local GitHub checkout:
+
+  train.py
+  TRAINING_SETUP.md
+  scripts/inspect_got10k.py
+  src/mvt/data/augmentations.py
+  src/mvt/data/got10k.py
+  src/mvt/data/sampler.py
+  src/mvt/training/pretrained.py
+  src/mvt/training/trainer.py
+  tests/test_training_pipeline.py
+
+Do not overwrite existing src/mvt/data/processing.py, input.py, processing_utils.py,
+models, losses, optimizer.py or config YAML. This package imports those existing files.
+
+Pretrained backbone weights (optional), CUDA libraries, and GOT-10k frames are NOT included.
