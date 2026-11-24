@@ -4,3 +4,6 @@
 /checkpoints/
 *.egg-info/
 /pretrained_models/
+/reports/
+/results/
+/one_sequence.txt
