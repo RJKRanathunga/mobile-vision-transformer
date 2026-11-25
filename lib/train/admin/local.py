@@ -1,21 +1,27 @@
 class EnvironmentSettings:
     def __init__(self):
-        self.workspace_dir = '/home/goutam/VisualTracking/research_code_for_github/MVT'    # Base directory for saving network checkpoints.
-        self.tensorboard_dir = '/home/goutam/VisualTracking/research_code_for_github/MVT/tensorboard'    # Directory for tensorboard files.
-        self.pretrained_networks = '/home/goutam/VisualTracking/research_code_for_github/MVT/pretrained_networks'
-        self.lasot_dir = '/home/goutam/Datasets/train_data/lasot'
-        self.got10k_dir = '/home/goutam/Datasets/train_data/got10k/train'
-        self.got10k_val_dir = '/home/goutam/Datasets/train_data/got10k/val'
-        self.lasot_lmdb_dir = '/home/goutam/VisualTracking/research_code_for_github/MVT/data/lasot_lmdb'
-        self.got10k_lmdb_dir = '/home/goutam/VisualTracking/research_code_for_github/MVT/data/got10k_lmdb'
-        self.trackingnet_dir = '/home/goutam/VisualTracking/research_code_for_github/MVT/data/trackingnet'
-        self.trackingnet_lmdb_dir = '/home/goutam/VisualTracking/research_code_for_github/MVT/data/trackingnet_lmdb'
-        self.coco_dir = '/home/goutam/Datasets/train_data/coco'
-        self.coco_lmdb_dir = '/home/goutam/VisualTracking/research_code_for_github/MVT/data/coco_lmdb'
+
+        # Project directories
+        self.workspace_dir = 'D:/Uni_Projects/movit-original'
+        self.tensorboard_dir = 'D:/Uni_Projects/movit-original/tensorboard'
+        self.pretrained_networks = 'D:/Uni_Projects/movit-original/pretrained_models'
+
+        # Shared GOT-10k dataset
+        self.got10k_dir = 'D:/Uni_Projects/movit_object_tracking/data/train'
+        self.got10k_val_dir = 'D:/Uni_Projects/movit_object_tracking/data/val'
+
+        # Unused datasets
+        self.lasot_dir = ''
+        self.lasot_lmdb_dir = ''
+        self.got10k_lmdb_dir = ''
+        self.trackingnet_dir = ''
+        self.trackingnet_lmdb_dir = ''
+        self.coco_dir = ''
+        self.coco_lmdb_dir = ''
         self.lvis_dir = ''
         self.sbd_dir = ''
-        self.imagenet_dir = '/home/goutam/VisualTracking/research_code_for_github/MVT/data/vid'
-        self.imagenet_lmdb_dir = '/home/goutam/VisualTracking/research_code_for_github/MVT/data/vid_lmdb'
+        self.imagenet_dir = ''
+        self.imagenet_lmdb_dir = ''
         self.imagenetdet_dir = ''
         self.ecssd_dir = ''
         self.hkuis_dir = ''

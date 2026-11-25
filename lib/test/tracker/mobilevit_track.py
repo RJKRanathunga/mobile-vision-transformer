@@ -65,17 +65,18 @@ class MobileViTTrack(BaseTracker):
                                                     output_sz=self.params.template_size)
         self.z_patch_arr = z_patch_arr
         template = self.preprocessor.process(z_patch_arr, z_amask_arr)
-        with torch.no_grad():
-            # conv_1 (i.e., the first conv3x3 layer) output for
-            z = self.network.backbone.conv_1.forward(template.tensors.to(self.device))
-
-            # layer_1 (i.e., MobileNetV2 block) output
-            z = self.network.backbone.layer_1.forward(z)
-
-            # layer_2 (i.e., MobileNetV2 with down-sampling + 2 x MobileNetV2) output
-            z = self.network.backbone.layer_2.forward(z)
-
-            self.z_dict1 = z
+        # with torch.no_grad():
+        #     # conv_1 (i.e., the first conv3x3 layer) output for
+        #     z = self.network.backbone.conv_1.forward(template.tensors.to(self.device))
+        #
+        #     # layer_1 (i.e., MobileNetV2 block) output
+        #     z = self.network.backbone.layer_1.forward(z)
+        #
+        #     # layer_2 (i.e., MobileNetV2 with down-sampling + 2 x MobileNetV2) output
+        #     z = self.network.backbone.layer_2.forward(z)
+        #
+        #     self.z_dict1 = z
+        self.z_dict1 = template.tensors
 
         self.box_mask_z = None
 
