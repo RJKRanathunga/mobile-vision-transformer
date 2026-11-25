@@ -15,6 +15,7 @@ import numpy as np
 from lib.test.tracker.data_utils_mobilevit import Preprocessor
 from lib.utils.box_ops import clip_box
 from lib.utils.ce_utils import generate_mask_cond
+from lib.test.tracker.motion_predictor import MotionPredictor, motion_window
 
 
 class MobileViTTrack(BaseTracker):
@@ -36,6 +37,14 @@ class MobileViTTrack(BaseTracker):
         # motion constraint
         # self.output_window = hann2d(torch.tensor([self.feat_sz, self.feat_sz]).long(), centered=True).cuda()
         self.output_window = hann2d(torch.tensor([self.feat_sz, self.feat_sz]).long(), centered=True).to(self.device)
+        # MVT_MOTION_PATCH_V1: baseline is the default.
+        self.motion_predictor = MotionPredictor(os.getenv("MVT_MOTION_MODE", "baseline"))
+        self.motion_weight = float(os.getenv("MVT_MOTION_WEIGHT", "0.5"))
+        self.motion_sigma = float(os.getenv("MVT_MOTION_SIGMA", "2.0"))
+        if not 0 <= self.motion_weight <= 1 or not math.isfinite(self.motion_sigma) or self.motion_sigma <= 0:
+            raise ValueError("Motion weight must be in [0,1] and sigma must be positive")
+        self.last_motion_center = None
+        self.last_motion_applied = False
 
         # for debug
         self.debug = params.debug
@@ -54,7 +63,7 @@ class MobileViTTrack(BaseTracker):
         self.z_dict1 = {}
 
         # save the model state dictionary only (to verify the actual model size)
-        self.save_state_dict = True
+        self.save_state_dict = os.getenv("MVT_SAVE_STATE_DICT", "1") != "0"
         if self.save_state_dict:
             model_name = self.params.checkpoint
             torch.save(network.state_dict(), model_name.split('.pth.tar')[0] + '_state_dict.pt')
@@ -82,6 +91,9 @@ class MobileViTTrack(BaseTracker):
 
         # save states
         self.state = info['init_bbox']
+        self.motion_predictor.reset(self.state)
+        self.last_motion_center = None
+        self.last_motion_applied = False
         self.frame_id = 0
         if self.save_all_boxes:
             '''save all predicted boxes'''
@@ -104,7 +116,22 @@ class MobileViTTrack(BaseTracker):
 
         # add hann windows
         pred_score_map = out_dict['score_map']
-        response = self.output_window * pred_score_map
+        # Motion history contains only previous predictions, never current GT.
+        self.last_motion_center = None
+        self.last_motion_applied = False
+        if self.motion_predictor.mode == "baseline" or self.motion_weight == 0:
+            response = self.output_window * pred_score_map
+        else:
+            self.last_motion_center = self.motion_predictor.predict()
+            prior = motion_window(self.last_motion_center, self.state, resize_factor,
+                                  self.params.search_size, pred_score_map,
+                                  out_dict['offset_map'], self.motion_sigma)
+            if prior is None:
+                response = self.output_window * pred_score_map
+            else:
+                response = pred_score_map * ((1 - self.motion_weight) * self.output_window
+                                             + self.motion_weight * prior)
+                self.last_motion_applied = True
         pred_boxes = self.network.box_head.cal_bbox(response, out_dict['size_map'], out_dict['offset_map'])
         pred_boxes = pred_boxes.view(-1, 4)
         # Baseline: Take the mean of all pred boxes as the final result
@@ -112,6 +139,7 @@ class MobileViTTrack(BaseTracker):
             dim=0) * self.params.search_size / resize_factor).tolist()  # (cx, cy, w, h) [0,1]
         # get the final box result
         self.state = clip_box(self.map_box_back(pred_box, resize_factor), H, W, margin=10)
+        self.motion_predictor.update(self.state)
 
         # for debug
         if self.debug:
@@ -128,6 +156,7 @@ class MobileViTTrack(BaseTracker):
                 self.visdom.register(torch.from_numpy(self.z_patch_arr).permute(2, 0, 1), 'image', 1, 'template')
                 self.visdom.register(pred_score_map.view(self.feat_sz, self.feat_sz), 'heatmap', 1, 'score_map')
                 self.visdom.register((pred_score_map * self.output_window).view(self.feat_sz, self.feat_sz), 'heatmap', 1, 'score_map_hann')
+                self.visdom.register(response.view(self.feat_sz, self.feat_sz), 'heatmap', 1, 'score_map_final')
 
                 if 'removed_indexes_s' in out_dict and out_dict['removed_indexes_s']:
                     removed_indexes_s = out_dict['removed_indexes_s']

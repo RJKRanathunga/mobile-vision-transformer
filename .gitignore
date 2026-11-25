@@ -1,2 +1,9 @@
 *.iwl
 *.xml
+/.conda/
+/.idea/
+/.mvt_motion_patch/
+/output/
+/data/
+/pretrained_models/
+/tensorboard/
